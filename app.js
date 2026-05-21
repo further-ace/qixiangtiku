@@ -42,6 +42,22 @@ const FavoriteModule = {
     has(id) { return this.getAll().includes(id); }
 };
 
+const AnalysisModule = {
+    _key: 'custom_analysis',
+    getAll() { return Store.get(this._key, {}); },
+    get(id) { return this.getAll()[id] || ''; },
+    set(id, text) {
+        const a = this.getAll();
+        if (text && text.trim() && text.trim() !== '无') {
+            a[id] = text.trim();
+        } else {
+            delete a[id];
+        }
+        Store.set(this._key, a);
+    },
+    has(id) { return id in this.getAll(); }
+};
+
 let allQuestions = [];
 let questionIndex = {};
 
@@ -86,6 +102,7 @@ const App = {
             const resp = await fetch('questions.json');
             allQuestions = await resp.json();
             buildIndex();
+            this._restoreCustomAnalysis();
             this._bindEvents();
             this._updateMarkCount();
             if (Store.get('logged_in')) {
@@ -284,8 +301,20 @@ const App = {
             const t = getQuestionsByType(qs, '判断题');
             if (!t.length) { showToast('无判断题'); return; }
             this._startQuiz([...t], `${chapter} - 判断题`, false);
+        } else if (mode === 'random-single') {
+            const t = shuffleArray(getQuestionsByType(qs, '单选题'));
+            if (!t.length) { showToast('无单选题'); return; }
+            this._startQuiz(t, `${chapter} - 随机单选`, false);
+        } else if (mode === 'random-multi') {
+            const t = shuffleArray(getQuestionsByType(qs, '多选题'));
+            if (!t.length) { showToast('无多选题'); return; }
+            this._startQuiz(t, `${chapter} - 随机多选`, false);
+        } else if (mode === 'random-judge') {
+            const t = shuffleArray(getQuestionsByType(qs, '判断题'));
+            if (!t.length) { showToast('无判断题'); return; }
+            this._startQuiz(t, `${chapter} - 随机判断`, false);
         } else if (mode === 'random') {
-            this._startQuiz(shuffleArray(qs), `${chapter} - 随机练习`, false);
+            this._startQuiz(shuffleArray(qs), `${chapter} - 随机全部`, false);
         } else if (mode === 'wrong') {
             const wrongIds = WrongQuestionModule.getIds();
             const favIds = FavoriteModule.getAll();
@@ -420,9 +449,7 @@ const App = {
 
         if (showResult) {
             html += `<div class="answer-explanation">正确答案：${q.answer}</div>`;
-            if (q.analysis && q.analysis.trim() && q.analysis !== '无') {
-                html += `<div class="question-analysis">解析：${q.analysis}</div>`;
-            }
+            html += this._renderAnalysis(q);
         }
         return html;
     },
@@ -440,9 +467,7 @@ const App = {
         }).join('');
         if (showResult) {
             html += `<div class="answer-explanation">正确答案：${q.answer}</div>`;
-            if (q.analysis && q.analysis.trim() && q.analysis !== '无') {
-                html += `<div class="question-analysis">解析：${q.analysis}</div>`;
-            }
+            html += this._renderAnalysis(q);
         }
         return html;
     },
@@ -465,11 +490,56 @@ const App = {
         let html = `<div class="judge-options">${renderBtn('对')}${renderBtn('错')}</div>`;
         if (showResult) {
             html += `<div class="answer-explanation">正确答案：${correct}</div>`;
-            if (q.analysis && q.analysis.trim() && q.analysis !== '无') {
-                html += `<div class="question-analysis">解析：${q.analysis}</div>`;
-            }
+            html += this._renderAnalysis(q);
         }
         return html;
+    },
+
+    _renderAnalysis(q) {
+        const customAnalysis = AnalysisModule.get(q.id);
+        const analysisText = customAnalysis || ((q.analysis && q.analysis.trim() && q.analysis !== '无') ? q.analysis : '无');
+        return `<div class="question-analysis">
+            <span class="analysis-text">解析：${analysisText}</span>
+            <button class="analysis-edit-btn" onclick="App._toggleAnalysisEdit(${q.id})" title="编辑解析">✎</button>
+        </div>
+        <div class="analysis-edit-area" id="analysis-edit-${q.id}" style="display:none;">
+            <textarea id="analysis-input-${q.id}" class="analysis-input">${customAnalysis || (q.analysis && q.analysis.trim() && q.analysis !== '无' ? q.analysis : '')}</textarea>
+            <div class="analysis-edit-actions">
+                <button class="analysis-save-btn" onclick="App._saveAnalysis(${q.id})">保存</button>
+                <button class="analysis-cancel-btn" onclick="App._cancelAnalysisEdit(${q.id})">取消</button>
+            </div>
+        </div>`;
+    },
+
+    _toggleAnalysisEdit(qId) {
+        const editArea = document.getElementById(`analysis-edit-${qId}`);
+        if (editArea) {
+            editArea.style.display = editArea.style.display === 'none' ? 'block' : 'none';
+        }
+    },
+
+    _saveAnalysis(qId) {
+        const input = document.getElementById(`analysis-input-${qId}`);
+        if (!input) return;
+        const text = input.value.trim();
+        AnalysisModule.set(qId, text);
+        const q = questionIndex[qId];
+        if (q) q.analysis = text || '无';
+        showToast('解析已保存');
+        this._renderQuestion();
+    },
+
+    _cancelAnalysisEdit(qId) {
+        const editArea = document.getElementById(`analysis-edit-${qId}`);
+        if (editArea) editArea.style.display = 'none';
+    },
+
+    _restoreCustomAnalysis() {
+        const customAnalysis = AnalysisModule.getAll();
+        for (const id in customAnalysis) {
+            const q = questionIndex[id];
+            if (q) q.analysis = customAnalysis[id];
+        }
     },
 
     selectOption(label) {

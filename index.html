@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>气象题库练习系统</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 登录页 -->
+        <div id="page-login" class="page active">
+            <div class="login-content">
+                <div class="login-logo">🌤️</div>
+                <h1>气象题库练习系统</h1>
+                <div class="login-form">
+                    <div class="login-field">
+                        <input type="text" id="login-user" placeholder="用户名" autocomplete="off">
+                    </div>
+                    <div class="login-field">
+                        <input type="password" id="login-pass" placeholder="密码">
+                    </div>
+                    <button class="btn-primary btn-login" onclick="App.doLogin()">登 录</button>
+                    <p class="login-error" id="login-error"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 首页 -->
+        <div id="page-home" class="page">
+            <header class="header">
+                <h1>气象题库练习系统</h1>
+                <button class="btn-back" onclick="App.doLogout()" title="退出登录">✕</button>
+            </header>
+            <div class="home-content">
+                <div class="bank-card" data-bank="应知应会业务库">
+                    <div class="bank-icon">📘</div>
+                    <h2>应知应会业务库</h2>
+                    <p class="bank-desc">基础业务知识练习</p>
+                </div>
+                <div class="bank-card" data-bank="竞赛业务库">
+                    <div class="bank-icon">🏆</div>
+                    <h2>竞赛业务库</h2>
+                    <p class="bank-desc">竞赛提升训练</p>
+                </div>
+                <div class="bank-card" data-bank="错题本">
+                    <div class="bank-icon">📝</div>
+                    <h2>错题本</h2>
+                    <p class="bank-desc" id="wrong-count-label">0道错题</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 章节选择页 -->
+        <div id="page-chapter" class="page">
+            <header class="header">
+                <button class="btn-back" onclick="App.goBack()">←</button>
+                <h1 id="chapter-title">章节选择</h1>
+            </header>
+            <div class="chapter-content" id="chapter-list"></div>
+        </div>
+
+        <!-- 模式选择页（章节练习含题型 + 随机/错题/考试） -->
+        <div id="page-mode" class="page">
+            <header class="header">
+                <button class="btn-back" onclick="App.goBack()">←</button>
+                <h1 id="mode-title">练习模式</h1>
+            </header>
+            <div class="mode-content">
+                <div class="mode-group">
+                    <h3>章节练习</h3>
+                    <div class="mode-card" data-mode="chapter-all">
+                        <span class="mode-icon">📖</span>
+                        <span>全部题目</span>
+                    </div>
+                    <div class="mode-card" data-mode="chapter-single">
+                        <span class="mode-icon">🔵</span>
+                        <span>单选题</span>
+                    </div>
+                    <div class="mode-card" data-mode="chapter-multi">
+                        <span class="mode-icon">🔴</span>
+                        <span>多选题</span>
+                    </div>
+                    <div class="mode-card" data-mode="chapter-judge">
+                        <span class="mode-icon">🟢</span>
+                        <span>判断题</span>
+                    </div>
+                </div>
+                <div class="mode-group">
+                    <h3>其他模式</h3>
+                    <div class="mode-card" data-mode="random">
+                        <span class="mode-icon">🎲</span>
+                        <span>随机练习</span>
+                    </div>
+                    <div class="mode-card" data-mode="wrong">
+                        <span class="mode-icon">❌</span>
+                        <span>错题练习</span>
+                    </div>
+                </div>
+                <div class="mode-group">
+                    <h3>考试模式</h3>
+                    <div class="mode-card" data-mode="exam">
+                        <span class="mode-icon">📄</span>
+                        <span>章节考试</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 错题本章节分类页 -->
+        <div id="page-wrong-chapters" class="page">
+            <header class="header">
+                <button class="btn-back" onclick="App.goBack()">←</button>
+                <h1>错题本</h1>
+            </header>
+            <div class="chapter-content" id="wrong-chapter-list"></div>
+        </div>
+
+        <!-- 考试配置页 -->
+        <div id="page-exam-config" class="page">
+            <header class="header">
+                <button class="btn-back" onclick="App.goBack()">←</button>
+                <h1>考试配置</h1>
+            </header>
+            <div class="exam-config-content">
+                <div class="config-item">
+                    <label>限时</label>
+                    <select id="exam-time">
+                        <option value="90" selected>90分钟</option>
+                        <option value="60">60分钟</option>
+                        <option value="120">120分钟</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label>单选题数量</label>
+                    <input type="number" id="exam-single" min="0" max="500" value="30">
+                </div>
+                <div class="config-item">
+                    <label>多选题数量</label>
+                    <input type="number" id="exam-multi" min="0" max="200" value="10">
+                </div>
+                <div class="config-item">
+                    <label>判断题数量</label>
+                    <input type="number" id="exam-judge" min="0" max="500" value="20">
+                </div>
+                <div class="config-info" id="exam-available"></div>
+                <button class="btn-primary" id="btn-start-exam">开始考试</button>
+            </div>
+        </div>
+
+        <!-- 答题页 -->
+        <div id="page-quiz" class="page">
+            <header class="header">
+                <button class="btn-back" onclick="App.confirmQuit()">←</button>
+                <h1 id="quiz-title">答题</h1>
+                <span class="quiz-progress" id="quiz-progress">1/30</span>
+            </header>
+            <div class="exam-timer" id="exam-timer" style="display:none;">
+                <span id="timer-display">90:00</span>
+            </div>
+            <div class="quiz-content">
+                <div class="question-card" id="question-card">
+                    <div class="question-type" id="question-type-badge">单选题</div>
+                    <div class="question-text" id="question-text"></div>
+                    <div class="options-list" id="options-list"></div>
+                </div>
+            </div>
+            <div class="quiz-footer" id="quiz-footer">
+                <div class="footer-action-row">
+                    <button class="btn-secondary" id="btn-prev" onclick="App.prevQuestion()">上一题</button>
+                    <button class="btn-primary" id="btn-next" onclick="App.nextQuestion()">下一题</button>
+                    <button class="btn-primary btn-confirm-multi" id="btn-confirm-multi" style="display:none;" onclick="App.confirmMulti()">确认</button>
+                    <button class="btn-primary btn-submit" id="btn-submit-exam" style="display:none;" onclick="App.submitExam()">交卷</button>
+                </div>
+                <div class="footer-nav-row">
+                    <button class="footer-icon-btn" onclick="App.goHome()">🏠<small>首页</small></button>
+                    <button class="footer-icon-btn" onclick="App.openAnswerSheet()">📊<small>卡</small></button>
+                    <button class="footer-icon-btn" id="btn-fav" onclick="App.toggleFavorite()">
+                        <span id="fav-icon">☆</span><small>收藏</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 结果页 -->
+        <div id="page-result" class="page">
+            <header class="header">
+                <h1>答题结果</h1>
+            </header>
+            <div class="result-content">
+                <div class="result-score">
+                    <div class="score-circle" id="score-circle">
+                        <span id="score-number">0</span>
+                        <span class="score-label">分</span>
+                    </div>
+                </div>
+                <div class="result-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">总题数</span>
+                        <span class="stat-value" id="stat-total">0</span>
+                    </div>
+                    <div class="stat-item correct">
+                        <span class="stat-label">正确</span>
+                        <span class="stat-value" id="stat-correct">0</span>
+                    </div>
+                    <div class="stat-item wrong">
+                        <span class="stat-label">错误</span>
+                        <span class="stat-value" id="stat-wrong">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">未答</span>
+                        <span class="stat-value" id="stat-unanswered">0</span>
+                    </div>
+                </div>
+                <div class="result-actions">
+                    <button class="btn-primary" onclick="App.viewWrongQuestions()">查看错题</button>
+                    <button class="btn-secondary" onclick="App.goHome()">返回首页</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 答题卡弹窗 -->
+        <div id="answer-sheet-overlay" class="overlay" onclick="App.closeAnswerSheet()">
+            <div class="answer-sheet" onclick="event.stopPropagation()">
+                <h3>答题卡</h3>
+                <div id="sheet-groups"></div>
+                <div class="sheet-legend">
+                    <span class="legend-item"><i class="dot answered"></i>已答</span>
+                    <span class="legend-item"><i class="dot correct"></i>正确</span>
+                    <span class="legend-item"><i class="dot wrong"></i>错误</span>
+                    <span class="legend-item"><i class="dot"></i>未答</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+        <p>加载题库中...</p>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

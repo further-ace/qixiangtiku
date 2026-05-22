@@ -366,7 +366,56 @@ const App = {
         this._multiConfirmed = {};
         this._isExam = isExam;
         this._showAnswer = !isExam;
+        this._maxReachedIndex = 0;
 
+        const progressKey = title;
+
+        if (!isExam) {
+            const saved = Store.get('quiz_progress_' + progressKey);
+            if (saved && saved.index > 0 && saved.questionIds) {
+                const savedIds = saved.questionIds;
+                const curIds = questions.map(q => q.id);
+                const match = savedIds.length === curIds.length && savedIds.every((id, i) => id === curIds[i]);
+                if (match) {
+                    this._showResumeDialog(progressKey, saved, questions, title, isExam, timeLimit);
+                    return;
+                }
+            }
+        }
+
+        this._initQuizUI(title, isExam, timeLimit);
+    },
+
+    _showResumeDialog(progressKey, saved, questions, title, isExam, timeLimit) {
+        const overlay = document.createElement('div');
+        overlay.className = 'confirm-overlay';
+        overlay.innerHTML = `<div class="confirm-dialog">
+            <p>检测到上次答题进度（第${saved.index + 1}题/共${questions.length}题），是否继续？</p>
+            <div class="confirm-btns">
+                <button class="btn-cancel" id="resume-cancel">从头开始</button>
+                <button class="btn-confirm" id="resume-confirm">继续答题</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#resume-cancel').addEventListener('click', () => {
+            overlay.remove();
+            Store.remove('quiz_progress_' + progressKey);
+            this._initQuizUI(title, isExam, timeLimit);
+        });
+        overlay.querySelector('#resume-confirm').addEventListener('click', () => {
+            overlay.remove();
+            this._quizQuestions = questions;
+            this._quizIndex = saved.index;
+            this._userAnswers = saved.answers || {};
+            this._multiConfirmed = saved.multiConfirmed || {};
+            this._maxReachedIndex = saved.maxReached || saved.index;
+            this._isExam = isExam;
+            this._showAnswer = !isExam;
+            this._initQuizUI(title, isExam, timeLimit);
+        });
+    },
+
+    _initQuizUI(title, isExam, timeLimit) {
         document.getElementById('quiz-title').textContent = title;
         document.getElementById('btn-submit-exam').style.display = isExam ? 'block' : 'none';
         document.getElementById('btn-next').style.display = 'block';
@@ -378,8 +427,22 @@ const App = {
             document.getElementById('exam-timer').style.display = 'none';
         }
 
+        this._saveQuizProgress();
         this._renderQuestion();
         this.pushPage('quiz');
+    },
+
+    _saveQuizProgress() {
+        if (this._isExam) return;
+        const title = document.getElementById('quiz-title').textContent;
+        const key = 'quiz_progress_' + title;
+        Store.set(key, {
+            index: this._quizIndex,
+            questionIds: this._quizQuestions.map(q => q.id),
+            answers: this._userAnswers,
+            multiConfirmed: this._multiConfirmed,
+            maxReached: this._maxReachedIndex
+        });
     },
 
     _renderQuestion() {
@@ -558,6 +621,7 @@ const App = {
             this._userAnswers[q.id] = current.split('').sort().join('');
         }
 
+        this._saveQuizProgress();
         this._renderQuestion();
     },
 
@@ -567,6 +631,7 @@ const App = {
         if (!userAns || userAns.length === 0) { showToast('请至少选择一个选项'); return; }
         this._multiConfirmed[q.id] = true;
         this._checkAnswer(q);
+        this._saveQuizProgress();
         this._renderQuestion();
     },
 
@@ -583,6 +648,7 @@ const App = {
         if (this._isExam && this._userAnswers[q.id] !== undefined) return;
         this._userAnswers[q.id] = val;
         this._checkAnswer(q);
+        this._saveQuizProgress();
         this._renderQuestion();
     },
 
@@ -607,10 +673,28 @@ const App = {
         document.getElementById('btn-next').textContent = (!this._isExam && isLast) ? '查看结果' : '下一题';
     },
 
-    prevQuestion() { if (this._quizIndex > 0) { this._quizIndex--; this._renderQuestion(); } },
+    prevQuestion() {
+        if (this._quizIndex > 0) {
+            this._quizIndex--;
+            const q = this._quizQuestions[this._quizIndex];
+            if (!this._isExam && this._userAnswers[q.id] !== undefined) {
+                delete this._userAnswers[q.id];
+                delete this._multiConfirmed[q.id];
+            }
+            this._saveQuizProgress();
+            this._renderQuestion();
+        }
+    },
 
     nextQuestion() {
-        if (this._quizIndex < this._quizQuestions.length - 1) { this._quizIndex++; this._renderQuestion(); }
+        if (this._quizIndex < this._quizQuestions.length - 1) {
+            this._quizIndex++;
+            if (this._quizIndex > this._maxReachedIndex) {
+                this._maxReachedIndex = this._quizIndex;
+            }
+            this._saveQuizProgress();
+            this._renderQuestion();
+        }
         else if (!this._isExam) { this._showResult(); }
     },
 
@@ -644,6 +728,9 @@ const App = {
     },
 
     _showResult() {
+        const title = document.getElementById('quiz-title').textContent;
+        Store.remove('quiz_progress_' + title);
+
         let correct = 0, wrong = 0, unanswered = 0;
         this._quizQuestions.forEach(q => {
             const a = this._userAnswers[q.id];
@@ -706,7 +793,20 @@ const App = {
     },
 
     closeAnswerSheet() { document.getElementById('answer-sheet-overlay').classList.remove('visible'); },
-    jumpToQuestion(index) { this._quizIndex = index; this._renderQuestion(); this.closeAnswerSheet(); },
+    jumpToQuestion(index) {
+        this._quizIndex = index;
+        if (!this._isExam) {
+            const q = this._quizQuestions[this._quizIndex];
+            if (this._userAnswers[q.id] !== undefined && index < this._maxReachedIndex) {
+                delete this._userAnswers[q.id];
+                delete this._multiConfirmed[q.id];
+            }
+            if (index > this._maxReachedIndex) this._maxReachedIndex = index;
+            this._saveQuizProgress();
+        }
+        this._renderQuestion();
+        this.closeAnswerSheet();
+    },
 
     // ---- 收藏（改为：收藏=加入标记，取消收藏=从收藏移除；若同时是错题则仍保留在错题本） ----
     toggleFavorite() {

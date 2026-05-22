@@ -2,7 +2,20 @@
  * 气象题库练习系统 - 主应用逻辑
  */
 
-const AUTH_CREDENTIALS = { username: '833081', password: '280956w' };
+const AUTH_CREDENTIALS = {
+    '833081': { password: '280956w', role: 'admin' },
+    '123': { password: 'qwe', role: 'user' }
+};
+
+const FeedbackStore = {
+    _key: 'feedback_list',
+    getAll() { return Store.get(this._key, []); },
+    add(text, username) {
+        const list = this.getAll();
+        list.push({ text, username, time: new Date().toLocaleString('zh-CN') });
+        Store.set(this._key, list);
+    }
+};
 
 const Store = {
     _prefix: 'meteo_quiz_',
@@ -108,6 +121,7 @@ const App = {
             if (Store.get('logged_in')) {
                 this._pageStack = ['home'];
                 this.showPage('home');
+                this._updateAdminBtn();
             } else {
                 this._pageStack = ['login'];
                 this.showPage('login');
@@ -151,15 +165,35 @@ const App = {
         const user = document.getElementById('login-user').value.trim();
         const pass = document.getElementById('login-pass').value;
         const errEl = document.getElementById('login-error');
-        if (user === AUTH_CREDENTIALS.username && pass === AUTH_CREDENTIALS.password) {
-            Store.set('logged_in', true); errEl.textContent = '';
+        const cred = AUTH_CREDENTIALS[user];
+        if (cred && cred.password === pass) {
+            Store.set('logged_in', true);
+            Store.set('current_user', user);
+            Store.set('current_role', cred.role);
+            errEl.textContent = '';
             this._pageStack = ['home']; this.showPage('home');
+            this._updateAdminBtn();
+            if (!Store.get('has_logged_in_before_' + user)) {
+                Store.set('has_logged_in_before_' + user, true);
+                setTimeout(() => this._showWelcome(), 300);
+            }
         } else { errEl.textContent = '用户名或密码错误'; }
+    },
+
+    _showWelcome() {
+        showConfirm('欢迎您使用本系统，有任何意见或建议，可在右上角进行反馈，谢谢', () => {});
+    },
+
+    _updateAdminBtn() {
+        const btn = document.getElementById('btn-admin');
+        if (btn) btn.style.display = Store.get('current_role') === 'admin' ? 'block' : 'none';
     },
 
     doLogout() {
         showConfirm('确定退出登录？', () => {
             Store.remove('logged_in');
+            Store.remove('current_user');
+            Store.remove('current_role');
             document.getElementById('login-user').value = '';
             document.getElementById('login-pass').value = '';
             document.getElementById('login-error').textContent = '';
@@ -832,6 +866,45 @@ const App = {
         const q = this._quizQuestions[this._quizIndex];
         const icon = document.getElementById('fav-icon');
         if (icon) icon.textContent = FavoriteModule.has(q.id) ? '★' : '☆';
+    },
+
+    openFeedback() {
+        document.getElementById('feedback-text').value = '';
+        document.getElementById('feedback-overlay').classList.add('visible');
+    },
+
+    closeFeedback() {
+        document.getElementById('feedback-overlay').classList.remove('visible');
+    },
+
+    submitFeedback() {
+        const text = document.getElementById('feedback-text').value.trim();
+        if (!text) { showToast('请输入反馈内容'); return; }
+        const user = Store.get('current_user') || '匿名';
+        FeedbackStore.add(text, user);
+        showToast('反馈提交成功，谢谢！');
+        this.closeFeedback();
+    },
+
+    openAdminPanel() {
+        const list = FeedbackStore.getAll();
+        const panel = document.getElementById('admin-panel');
+        const listEl = document.getElementById('admin-feedback-list');
+        if (!list.length) {
+            listEl.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">暂无反馈意见</p>';
+        } else {
+            listEl.innerHTML = list.map((fb, i) =>
+                `<div class="admin-feedback-item">
+                    <div class="admin-feedback-meta">用户：${fb.username} | 时间：${fb.time}</div>
+                    <div class="admin-feedback-text">${fb.text}</div>
+                </div>`
+            ).reverse().join('');
+        }
+        document.getElementById('admin-overlay').classList.add('visible');
+    },
+
+    closeAdminPanel() {
+        document.getElementById('admin-overlay').classList.remove('visible');
     }
 };
 

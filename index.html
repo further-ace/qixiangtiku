@@ -30,7 +30,7 @@
         <div id="page-home" class="page">
             <header class="header">
                 <h1>气象题库练习系统</h1>
-                <button class="btn-back" onclick="App.doLogout()" title="退出登录">✕</button>
+                <button class="btn-feedback" onclick="App.openFeedback()" title="意见反馈">反馈</button>
             </header>
             <div class="home-content">
                 <div class="bank-card" data-bank="应知应会业务库">
@@ -43,6 +43,8 @@
                     <h2>错题与收藏</h2>
                     <p class="bank-desc" id="wrong-count-label">0错 / 0藏</p>
                 </div>
+                <button class="btn-logout-bottom" onclick="App.doLogout()">退出系统</button>
+                <button class="btn-admin" id="btn-admin" style="display:none;" onclick="App.openAdminPanel()">管理后台</button>
             </div>
         </div>
 
@@ -245,6 +247,29 @@
                     <span class="legend-item"><i class="dot"></i>未答</span>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 反馈弹窗 -->
+    <div class="feedback-overlay" id="feedback-overlay">
+        <div class="feedback-dialog">
+            <h3>意见反馈</h3>
+            <textarea id="feedback-text" class="feedback-textarea" placeholder="请输入您的意见或建议..."></textarea>
+            <div class="feedback-btns">
+                <button class="feedback-cancel" onclick="App.closeFeedback()">取消</button>
+                <button class="feedback-submit" onclick="App.submitFeedback()">提交</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 管理员后台面板 -->
+    <div class="admin-overlay" id="admin-overlay">
+        <div class="admin-dialog">
+            <div class="admin-header">
+                <h3>反馈意见管理</h3>
+                <button class="admin-close" onclick="App.closeAdminPanel()">✕</button>
+            </div>
+            <div class="admin-feedback-list" id="admin-feedback-list"></div>
         </div>
     </div>
 

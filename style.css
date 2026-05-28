@@ -138,10 +138,29 @@ html, body {
     font-weight: 500;
     cursor: pointer;
     margin-top: 10px;
+    position: relative;
 }
 
 .btn-admin:active {
     background: #0d47a1;
+}
+
+.admin-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: #e53935;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    line-height: 1;
 }
 
 .quiz-progress {
@@ -1232,6 +1251,22 @@ html, body {
     font-size: 17px;
 }
 
+.admin-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-mark-read {
+    background: var(--success);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
 .admin-close {
     background: none;
     border: none;
@@ -1254,10 +1289,37 @@ html, body {
     margin-bottom: 10px;
 }
 
+.admin-feedback-item.unread {
+    border-left: 3px solid #e53935;
+    background: #fff9f9;
+}
+
 .admin-feedback-meta {
     font-size: 12px;
     color: var(--text-secondary);
     margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.feedback-status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ccc;
+    flex-shrink: 0;
+}
+
+.feedback-status-dot.unread-dot {
+    background: #e53935;
+}
+
+.unread-label {
+    color: #e53935;
+    font-size: 11px;
+    font-weight: 600;
 }
 
 .admin-feedback-text {

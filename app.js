@@ -9,11 +9,27 @@ const AUTH_CREDENTIALS = {
 
 const FeedbackStore = {
     _key: 'feedback_list',
+    _readKey: 'feedback_read_ids',
     getAll() { return Store.get(this._key, []); },
     add(text, username) {
         const list = this.getAll();
-        list.push({ text, username, time: new Date().toLocaleString('zh-CN') });
+        const id = Date.now();
+        list.push({ id, text, username, time: new Date().toLocaleString('zh-CN') });
         Store.set(this._key, list);
+    },
+    getReadIds() { return Store.get(this._readKey, []); },
+    markRead(ids) {
+        const readIds = new Set(this.getReadIds());
+        ids.forEach(id => readIds.add(id));
+        Store.set(this._readKey, [...readIds]);
+    },
+    markAllRead() {
+        const allIds = this.getAll().map(fb => fb.id);
+        Store.set(this._readKey, allIds);
+    },
+    getUnreadCount() {
+        const readIds = new Set(this.getReadIds());
+        return this.getAll().filter(fb => !readIds.has(fb.id)).length;
     }
 };
 
@@ -186,7 +202,21 @@ const App = {
 
     _updateAdminBtn() {
         const btn = document.getElementById('btn-admin');
-        if (btn) btn.style.display = Store.get('current_role') === 'admin' ? 'block' : 'none';
+        if (btn) {
+            btn.style.display = Store.get('current_role') === 'admin' ? 'block' : 'none';
+            const unread = FeedbackStore.getUnreadCount();
+            let badge = btn.querySelector('.admin-badge');
+            if (unread > 0) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'admin-badge';
+                    btn.appendChild(badge);
+                }
+                badge.textContent = unread > 99 ? '99+' : unread;
+            } else if (badge) {
+                badge.remove();
+            }
+        }
     },
 
     doLogout() {
@@ -411,42 +441,26 @@ const App = {
                 const curIds = questions.map(q => q.id);
                 const match = savedIds.length === curIds.length && savedIds.every((id, i) => id === curIds[i]);
                 if (match) {
-                    this._showResumeDialog(progressKey, saved, questions, title, isExam, timeLimit);
+                    this._quizQuestions = questions;
+                    this._quizIndex = saved.index;
+                    this._userAnswers = saved.answers || {};
+                    this._multiConfirmed = saved.multiConfirmed || {};
+                    this._maxReachedIndex = saved.maxReached || saved.index;
+                    this._isExam = isExam;
+                    this._showAnswer = !isExam;
+                    // 清除当前题的作答记录（重新作答）
+                    const curQ = this._quizQuestions[this._quizIndex];
+                    if (curQ) {
+                        delete this._userAnswers[curQ.id];
+                        delete this._multiConfirmed[curQ.id];
+                    }
+                    this._initQuizUI(title, isExam, timeLimit);
                     return;
                 }
             }
         }
 
         this._initQuizUI(title, isExam, timeLimit);
-    },
-
-    _showResumeDialog(progressKey, saved, questions, title, isExam, timeLimit) {
-        const overlay = document.createElement('div');
-        overlay.className = 'confirm-overlay';
-        overlay.innerHTML = `<div class="confirm-dialog">
-            <p>检测到上次答题进度（第${saved.index + 1}题/共${questions.length}题），是否继续？</p>
-            <div class="confirm-btns">
-                <button class="btn-cancel" id="resume-cancel">从头开始</button>
-                <button class="btn-confirm" id="resume-confirm">继续答题</button>
-            </div>
-        </div>`;
-        document.body.appendChild(overlay);
-        overlay.querySelector('#resume-cancel').addEventListener('click', () => {
-            overlay.remove();
-            Store.remove('quiz_progress_' + progressKey);
-            this._initQuizUI(title, isExam, timeLimit);
-        });
-        overlay.querySelector('#resume-confirm').addEventListener('click', () => {
-            overlay.remove();
-            this._quizQuestions = questions;
-            this._quizIndex = saved.index;
-            this._userAnswers = saved.answers || {};
-            this._multiConfirmed = saved.multiConfirmed || {};
-            this._maxReachedIndex = saved.maxReached || saved.index;
-            this._isExam = isExam;
-            this._showAnswer = !isExam;
-            this._initQuizUI(title, isExam, timeLimit);
-        });
     },
 
     _initQuizUI(title, isExam, timeLimit) {
@@ -882,29 +896,42 @@ const App = {
         if (!text) { showToast('请输入反馈内容'); return; }
         const user = Store.get('current_user') || '匿名';
         FeedbackStore.add(text, user);
+        this._updateAdminBtn();
         showToast('反馈提交成功，谢谢！');
         this.closeFeedback();
     },
 
     openAdminPanel() {
         const list = FeedbackStore.getAll();
-        const panel = document.getElementById('admin-panel');
         const listEl = document.getElementById('admin-feedback-list');
+        const readIds = new Set(FeedbackStore.getReadIds());
         if (!list.length) {
             listEl.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">暂无反馈意见</p>';
         } else {
-            listEl.innerHTML = list.map((fb, i) =>
-                `<div class="admin-feedback-item">
-                    <div class="admin-feedback-meta">用户：${fb.username} | 时间：${fb.time}</div>
+            listEl.innerHTML = list.map((fb) => {
+                const isUnread = !readIds.has(fb.id);
+                return `<div class="admin-feedback-item${isUnread ? ' unread' : ''}">
+                    <div class="admin-feedback-meta">
+                        <span class="feedback-status-dot${isUnread ? ' unread-dot' : ''}"></span>
+                        用户：${fb.username} | 时间：${fb.time}${isUnread ? ' <span class="unread-label">未读</span>' : ''}
+                    </div>
                     <div class="admin-feedback-text">${fb.text}</div>
-                </div>`
-            ).reverse().join('');
+                </div>`;
+            }).reverse().join('');
         }
         document.getElementById('admin-overlay').classList.add('visible');
     },
 
     closeAdminPanel() {
+        FeedbackStore.markAllRead();
+        this._updateAdminBtn();
         document.getElementById('admin-overlay').classList.remove('visible');
+    },
+
+    markAllFeedbackRead() {
+        FeedbackStore.markAllRead();
+        this._updateAdminBtn();
+        this.openAdminPanel();
     }
 };
 

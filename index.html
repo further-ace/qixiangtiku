@@ -267,7 +267,10 @@
         <div class="admin-dialog">
             <div class="admin-header">
                 <h3>反馈意见管理</h3>
-                <button class="admin-close" onclick="App.closeAdminPanel()">✕</button>
+                <div class="admin-header-actions">
+                    <button class="admin-mark-read" onclick="App.markAllFeedbackRead()">全部已读</button>
+                    <button class="admin-close" onclick="App.closeAdminPanel()">✕</button>
+                </div>
             </div>
             <div class="admin-feedback-list" id="admin-feedback-list"></div>
         </div>
